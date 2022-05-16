@@ -1,33 +1,15 @@
-// API Endpoints
-const MainNet = 'https://toncenter.com/api/v2/jsonRPC';
-const TestNet = 'https://testnet.toncenter.com/api/v2/jsonRPC';
-const WalletVersion = 'v3R2';
-
-const tonscanAddress = 'https://testnet.tonscan.org/address';
-
-// Create TonWeb object
-const nacl = TonWeb.utils.nacl;
-const Address = TonWeb.utils.Address;
-const tonweb = new TonWeb(new TonWeb.HttpProvider(TestNet));
-
-const WalletClass = tonweb.wallet.all[WalletVersion];
-
-let keyPair = null;
-let wallet_state = false;
-
 console.log('TonWeb', TonWeb.version);
 
 // asyncs
 async function createWallet() {
-    const m = new Mnemonic(256);
-    const seed = m.toWords();
-    
-    // console.log(m.toHex()); // DEV
+    // const m = new Mnemonic(256); // DEPRICATED
+    // const seed = m.toWords();    // DEPRICATED
+    const phrase = await tonMnemonic.generateMnemonic();
 
     // view
     $('#work').html(`
     <p>Ваша кодовая фраза:</p>
-    <textarea class="form-control" rows="3" disabled>${seed.join(' ')}</textarea>
+    <textarea class="form-control" rows="3" disabled>${phrase.join(' ')}</textarea>
     `);
 
     $('#info').html(`<p>Теперь у Вас есть кодовая фраза запешите ее в надежное место и нажмите "Восстановить"</p>`)
@@ -47,14 +29,17 @@ async function repairWallet() {
 async function walletFromSeed() {
     const strSeed = $('#seed').val();
     const arrSeed = strSeed.split(' ');
-    m = Mnemonic.fromWords(arrSeed);
-    hexSeed = m.toHex();
-    if(hexSeed === '') {
+
+    if(!tonMnemonic.validateMnemonic(arrSeed)) { // TODO rewrite on validateMnemonic
         $('#info').html(`<p class="text-warning">Не получилось вычислить кодувую фразу</p>`);
         return;
     }
-    storeHexSeed(hexSeed);
-    hexToWallet(hexSeed);
+    
+    const seedBytes = await tonMnemonic.mnemonicToSeed(arrSeed);
+    const seedHex = TonWeb.utils.bytesToHex(seedBytes);
+    console.log('seed:', seedHex); // DEV
+    storeHexSeed(seedHex);
+    hexToWallet(seedHex);
 }
 
 function storeHexSeed(hexSeed) {
@@ -80,7 +65,6 @@ async function hexToWallet(hexSeed) {
     const strAddress = address.toString(true, true, true);
 
     $('#work').html(`
-    <div id="qr" style="width: 256px; margin: auto"></div>
     <p class="h5 mt-2">${strAddress}</p>
     <p class="h5 mt-3">Загрузка данных...</p>
     `);
@@ -105,22 +89,24 @@ async function hexToWallet(hexSeed) {
     
     $('#work').html(`
     <div id="qr" style="width: 256px; margin: auto"></div>
-    <p class="h5 mt-4"><a href="${tonscanAddress}/${strAddress}">${strAddress}</a></p>
-    <p class="h5 mt-3">Баланс ${TonWeb.utils.fromNano(walletInfo.balance)} TON</p>
+    <div class="mt-4"><a class="fs-5" href="${tonscanAddress}/${strAddress}">${strAddress}</a></div>
+    <div class="mt-2">Состояние <i class="text-info">${walletInfo.state}</i></div>
+    <div class="fs-5 mt-2">Баланс <span class="text-info">${TonWeb.utils.fromNano(walletInfo.balance)}</span> TON</div>
     `);
 
-    var qrcode = new QRCode("qr", {
-        text: "FT TON Wallet",
+	var options = {
+		text: 'ton://transfer/' + strAddress,
         width: 256,
         height: 256,
         colorDark : "#506070",
         colorLight : "#ffffff",
-        correctLevel : QRCode.CorrectLevel.H
-    });
-    
-    qrcode.makeCode('ton://transfer/' + strAddress);
+	};
+	// Create QRCode Object
+	new QRCode(document.getElementById("qr"), options);
 
-    $('#menu').html(`<button onclick="sendTon()" class="btn btn-primary">Отправить TON</button>`);
+    $('#menu').html(`<button onclick="sendTon()" class="btn btn-primary">Отправить TON</button>  <button class="btn btn-success" onclick="prepareJetton()">Выпустить jetton</button>`);
+
+    jettonWallets(strAddress); 
 }
 
 async function sendTon() {
@@ -150,7 +136,6 @@ async function sendValue() {
     console.log(wallet_state); // DEV
     // Deploy wallet if state = false
     if(!wallet_state) { // Проверять нужно статус
-        console.log('create new wallet');
         $('#info').html('<p>Создается кошелек в блокчейне...</p>');
         sleep(2000);
         const deployResult = await wallet.deploy(keyPair.secretKey).send();
@@ -173,6 +158,13 @@ async function sendValue() {
                     wallet_state = true;
                     break;
                 }
+                $('#info').html(`<p class="text-warning">Проверка активации ${i + 2} из 5...</p>`);
+            }
+
+            if(!wallet_state) {
+                $('#info').html('<p class="text-warning">Активация кошелька за время ожидания не удалось. Рекомендуется повторить отправку транзакции через несколько минут.</p>');                
+
+                return;
             }
 
             $('#info').html('<p>Отправляется транзакция...</p>');
@@ -224,10 +216,10 @@ async function sendValue() {
 
     // Create and send transaction
     $('#info').html('<p>Отправляется транзакция...</p>');
-    sleep(2000);
-    let seqno = await wallet.methods.seqno().call();
+    sleep(3000);
+    let seqno = (await wallet.methods.seqno().call()) || 0;
     console.log('seqno:', seqno) // DEV - null if unactive wallet contract
-    sleep(2000);
+    sleep(3000);
     const tx = wallet.methods.transfer({
         secretKey: keyPair.secretKey,
         toAddress: address,
@@ -236,7 +228,6 @@ async function sendValue() {
         payload: payload,
         sendMode: 3,
     });
-    sleep(2000);
     const txSend = await tx.send();
     console.log(txSend);
     const txSendStr = JSON.stringify(txSend);
@@ -264,15 +255,6 @@ async function sendValue() {
     }
 }
 
-// Utils
-function sleep(milliseconds) {
-    const date = Date.now();
-    let currentDate = null;
-    do {
-      currentDate = Date.now();
-    } while (currentDate - date < milliseconds);
-}
-
 // wallet-list utils
 
 // Add option to select wallet-list
@@ -293,8 +275,12 @@ async function main() {
     if(!localStorage.getItem('ftwallet')) {
         const obj = new Object();
         obj.version = '0.0.3';
+        // ton addresses
         obj.addr_index = 0;
         obj.addresses = new Object();
+        // minters
+        obj.minter_index = 0;
+        obj.minters = new Object();
         
         localStorage.setItem('ftwallet', JSON.stringify(obj));
     }
@@ -302,10 +288,16 @@ async function main() {
     let ftwallet = JSON.parse(localStorage.getItem('ftwallet'));
     // if(!ftwallet.addresses.length) return;
     console.log('FTWallet', ftwallet.version);
-    console.log(ftwallet.addr_index);
+    console.log(ftwallet.addr_index); // DEV
     for(let key in ftwallet.addresses) {
         // console.log(key, ftwallet.addresses[key]);
         addOptionToWalletList(key, ftwallet.addresses[key]);
+    }
+
+    // DEV
+    console.log(ftwallet.minter_index); // DEV
+    for(let key in ftwallet.minters) {
+        console.log(key, ftwallet.minters[key]);
     }
 }
 

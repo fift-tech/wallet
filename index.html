@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Hello TON Wallet</title>
+        <title>FIFT.TECH TON Wallet</title>
         <!-- Bootstrap CSS -->
         <link href="./css/bootstrap.min.css" rel="stylesheet" />
         <link href="./css/style.css" rel="stylesheet" />
@@ -12,7 +12,7 @@
         <div class="container">
             <div class="row mt-3 mb-3">
                 <div class="badge bg-primary text-wrap" style="width: 6rem;">
-                    Fift.Tech wallet 0.0.3
+                    Fift.Tech wallet 0.0.4
                 </div>
                 <div class="badge bg-secondary text-wrap" style="margin-left: 0.3rem; width: 6rem;">
                     Worked in TestNet
@@ -20,6 +20,10 @@
             </div>
             <div class="row">
                 <div class="col-sm-12 col-md-8 offset-md-2 text-center mt-2">
+                    <!-- widget
+                    <script src="https://widgets.coingecko.com/coingecko-coin-ticker-widget.js"></script>
+                    <coingecko-coin-ticker-widget currency="usd" coin-id="the-open-network" locale="en"></coingecko-coin-ticker-widget>
+                    end widget -->
                     <select id="wallet-list" style="margin: auto; max-width: 480px; color: #708090;" class="form-select mt-3 mb-3" aria-label="Выберите кошелек">
                         <option value="" selected>Выберите кошелек</option>
                     </select>
@@ -34,6 +38,7 @@
                     <div id="menu" class="mt-3">
                         <button onclick="createWallet()" class="btn btn-primary">Создать</button> <button onclick="repairWallet()" class="btn btn-primary">Восстановить</button>
                     </div>
+                    <div id="jetton-wallets"></div>
                 </div>
             </div>
             <div class="row">
@@ -44,9 +49,11 @@
         </div>
         <!-- js -->
         <script lang="JavaScript" src="./js/jquery.js"></script>
-        <script lang="JavaScript" src="./js/mnemonic.js"></script>
         <script lang="JavaScript" src="./js/tonweb.js"></script>
-        <script lang="JavaScript" src="./js/qrcode.min.js"></script>
+        <script lang="JavaScript" src="./js/tonweb-mnemonic.min.js"></script>
+        <script lang="JavaScript" src="./js/easy.qrcode.min.js"></script>
+
+        <script lang="JavaScript" src="./js/ft-jetton.js"></script>
         <script lang="JavaScript" src="./js/main.js"></script>
     </body>
 </html>
